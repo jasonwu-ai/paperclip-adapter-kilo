@@ -45,12 +45,13 @@ The install script auto-detects your Paperclip installation (walking the process
 3. `registry.js` — inlines the full adapter (execute, testEnv, sessionCodec, listModels, fallback)
 4. `registry.js` — registers `kiloLocalAdapter` in the adapter map
 5. `ui-dist/assets/index-*.js` — patches the dashboard UI for kilo_local support (dropdown, display names, thinking effort options). Handles bundle hash changes across Paperclip versions.
+6. `~/.kilocode/skills/` — syncs Paperclip skill symlinks so kilo agents load skills through Kilo's native skill directory.
 
 
 **Other commands:**
 
 ```bash
-./install.sh --check      # verify all 5 steps + UI bundle (6 checks)
+./install.sh --check      # verify all patches + UI bundle + skills
 ./install.sh --force      # re-install over existing
 ./install.sh --uninstall  # restore from backup
 ```
@@ -96,7 +97,7 @@ Matches `opencode_local`: `PAPERCLIP_TASK_ID`, `PAPERCLIP_WAKE_REASON`, `PAPERCL
 
 ### Skills
 
-Kilo discovers skills from its configured skill directories. If you also have Claude Code or OpenCode installed, Kilo will additionally scan `~/.claude/skills/` and `~/.opencode/skills/`, picking up any Paperclip-managed skills already symlinked there. No adapter-side injection is needed.
+The install script runs `sync-kilo-skills.sh` to mirror Paperclip-managed skill symlinks from `~/.claude/skills/` into `~/.kilocode/skills/` (Kilo's native skill directory). This ensures kilo agents discover skills through the intended path. Re-run `./install.sh` or `~/sync-kilo-skills.sh` after adding or removing skills in the Paperclip dashboard.
 
 ### Sessions
 
@@ -107,7 +108,7 @@ Stored in Kilo's SQLite DB (`~/.local/share/kilo/kilo.db`). The adapter captures
 | Feature          | opencode_local        | kilo_local                     |
 |------------------|-----------------------|--------------------------------|
 | Models           | Provider-specific     | Multi-provider routing         |
-| Skills           | Adapter injects       | Auto-loaded from global dirs   |
+| Skills           | Adapter injects       | Synced to `~/.kilocode/skills/` via install script |
 | Session storage  | OpenCode internal     | SQLite DB                      |
 | Model validation | ensureModelConfigured | Kilo handles internally        |
 
