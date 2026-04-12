@@ -19,7 +19,32 @@ Production-tested in multi-agent Paperclip deployments. Feature-complete with fu
 - At least one auth provider configured: `kilo auth add`
 - Paperclip server with `@paperclipai/adapter-utils`
 
-Until Paperclip ships an external adapter plugin surface, inline patching is required. See DEPLOY.md.
+Until Paperclip ships an external adapter plugin surface, inline patching is required. Run `./install.sh` to install automatically.
+
+## Installation
+
+```bash
+git clone https://github.com/jasonwu-ai/paperclip-adapter-kilo.git
+cd paperclip-adapter-kilo
+./install.sh
+sudo systemctl restart paperclip
+```
+
+The install script auto-detects your Paperclip installation, backs up the target files, and patches in the adapter with fallback model support. Safe to run multiple times (idempotent).
+
+**After a Paperclip update** (patches get wiped):
+
+```bash
+./install.sh          # re-applies everything
+```
+
+**Other commands:**
+
+```bash
+./install.sh --check      # verify install status
+./install.sh --force      # re-install over existing
+./install.sh --uninstall  # restore from backup
+```
 
 ## Configuration (adapterConfig)
 
@@ -85,7 +110,7 @@ This adapter uses `kilo_local` because the CLI binary is `kilo` (not `kilocode`)
 
 1. **System prompt overhead** — Kilo injects ~15K+ chars of its own system prompt on every run. Monitor context usage on smaller-context models.
 2. **Duplicate skill warnings** — If you also run `claude_local` or `opencode_local` agents, Kilo may scan their skill directories and log duplicate warnings. This is cosmetic and does not affect execution.
-3. **No external plugin surface yet** — Requires inline patches to register the adapter (see DEPLOY.md). This will be resolved when Paperclip ships its plugin system ([#1973](https://github.com/paperclipai/paperclip/issues/1973)).
+3. **No external plugin surface yet** — Requires inline patches to register the adapter (run `./install.sh`). This will be resolved when Paperclip ships its plugin system ([#1973](https://github.com/paperclipai/paperclip/issues/1973)).
 
 ## License
 
