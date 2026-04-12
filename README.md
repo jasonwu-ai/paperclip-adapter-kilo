@@ -4,7 +4,7 @@ Paperclip adapter for [Kilo CLI](https://github.com/kilocode/kilo) (`kilo_local`
 
 ## Status
 
-Production-tested. Running in a 17-agent Paperclip deployment since April 2026. Feature-complete, at parity with `@paperclipai/adapter-opencode-local`.
+Production-tested in multi-agent Paperclip deployments. Feature-complete with full wake context, session persistence, real-time transcript streaming, and enriched run metadata.
 
 ## Why Kilo?
 
@@ -62,11 +62,11 @@ Matches `opencode_local`: `PAPERCLIP_TASK_ID`, `PAPERCLIP_WAKE_REASON`, `PAPERCL
 
 ### Skills
 
-Kilo auto-discovers Paperclip-managed skills from `~/.claude/skills/` and `~/.opencode/skills/`. No adapter-side injection needed.
+Kilo discovers skills from its configured skill directories. If you also have Claude Code or OpenCode installed, Kilo will additionally scan `~/.claude/skills/` and `~/.opencode/skills/`, picking up any Paperclip-managed skills already symlinked there. No adapter-side injection is needed.
 
 ### Sessions
 
-Stored in Kilo's SQLite DB (`~/.local/share/kilo/kilo.db`). Adapter captures `sessionID`, returns as `sessionParams`, resumes via `--session` on next wake.
+Stored in Kilo's SQLite DB (`~/.local/share/kilo/kilo.db`). The adapter captures `sessionID` from JSONL output, returns it as `sessionParams`, and resumes via `--session` on the next wake.
 
 ## Differences from opencode_local
 
@@ -83,9 +83,9 @@ This adapter uses `kilo_local` because the CLI binary is `kilo` (not `kilocode`)
 
 ## Known Issues
 
-1. Kilo system prompt overhead (~15K+ chars) on every run — monitor on small-context models
-2. Dual skill loading from `~/.claude/skills/` and `~/.opencode/skills/` causes duplicate warnings
-3. No external plugin surface yet — requires inline patches (see DEPLOY.md)
+1. **System prompt overhead** — Kilo injects ~15K+ chars of its own system prompt on every run. Monitor context usage on smaller-context models.
+2. **Duplicate skill warnings** — If you also run `claude_local` or `opencode_local` agents, Kilo may scan their skill directories and log duplicate warnings. This is cosmetic and does not affect execution.
+3. **No external plugin surface yet** — Requires inline patches to register the adapter (see DEPLOY.md). This will be resolved when Paperclip ships its plugin system ([#1973](https://github.com/paperclipai/paperclip/issues/1973)).
 
 ## License
 
