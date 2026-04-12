@@ -2,7 +2,7 @@
 # install-kilo-adapter.sh — Install kilo_local adapter into Paperclip
 #
 # Part of: https://github.com/jasonwu-ai/paperclip-adapter-kilo
-# Covers: Patches #7 (adapter), #8 (enum), #10 (fallback), #10b (auto-infer), env display
+# Covers: Patches #7 (adapter), #8 (enum), #9 (UI bundle), #10 (fallback), #10b (auto-infer), env display
 #
 # Usage:
 #   ./install-kilo-adapter.sh              # Auto-detect Paperclip, install
@@ -71,19 +71,32 @@ find_paperclip_dir() {
   fi
 
   # 2. Running process (most reliable — finds the active instance)
+  # Walk process tree: npm exec → sh -c → node (which has node_modules in cmdline)
   local pid
   pid=$(pgrep -f paperclipai 2>/dev/null | head -1) || true
   if [[ -n "$pid" ]]; then
-    local cmdline
-    cmdline=$(cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' '\n' | grep "node_modules" | head -1) || true
-    if [[ -n "$cmdline" ]]; then
-      local running_path
-      running_path=$(echo "$cmdline" | sed 's|/node_modules/.*|/node_modules/@paperclipai/server|')
-      if [[ -d "$running_path" ]]; then
-        echo "$running_path"
-        return 0
+    # Check pid and all descendants for node_modules path
+    local all_pids="$pid"
+    local child_pids
+    child_pids=$(pgrep -P "$pid" 2>/dev/null) || true
+    for cpid in $child_pids; do
+      all_pids="$all_pids $cpid"
+      local grandchild_pids
+      grandchild_pids=$(pgrep -P "$cpid" 2>/dev/null) || true
+      all_pids="$all_pids $grandchild_pids"
+    done
+    for check_pid in $all_pids; do
+      local cmdline
+      cmdline=$(cat "/proc/$check_pid/cmdline" 2>/dev/null | tr '\0' '\n' | grep "node_modules" | head -1) || true
+      if [[ -n "$cmdline" ]]; then
+        local running_path
+        running_path=$(echo "$cmdline" | sed 's|/node_modules/.*|/node_modules/@paperclipai/server|')
+        if [[ -d "$running_path" ]]; then
+          echo "$running_path"
+          return 0
+        fi
       fi
-    fi
+    done
   fi
 
   # 3. Scan npx cache (fallback if Paperclip not running)
@@ -139,7 +152,17 @@ check_status() {
   $reg_ok     && info "✓ registry.js:  adapter code present"   || warn "✗ registry.js:  adapter code missing"
   $fb_ok      && info "✓ registry.js:  fallback auto-infer"    || warn "✗ registry.js:  fallback auto-infer missing"
 
-  if $enum_ok && $reg_ok && $fb_ok && $imports_ok; then
+  # UI bundle
+  local ui_bundle ui_ok=false
+  ui_bundle=$(find "$PAPERCLIP_DIR/ui-dist/assets/" -name 'index-*.js' -exec grep -l 'claude_local' {} \; 2>/dev/null | head -1)
+  if [[ -n "$ui_bundle" ]]; then
+    node "$(dirname "$0")/patch-ui-bundle.cjs" --check "$ui_bundle" > /dev/null 2>&1 && ui_ok=true
+    $ui_ok && info "✓ ui-dist:       kilo_local UI support" || warn "✗ ui-dist:       kilo_local UI support missing"
+  else
+    warn "✗ ui-dist:       bundle file not found"
+  fi
+
+  if $enum_ok && $reg_ok && $fb_ok && $imports_ok && $ui_ok; then
     info "Status: INSTALLED"
     return 0
   else
@@ -201,7 +224,7 @@ backup_file "$CONSTANTS_JS"
 # ===================================================================
 # PATCH #8: constants.js — add kilo_local to adapter type enum
 # ===================================================================
-step "Step 1/4: Patching constants.js (adapter type enum)..."
+step "Step 1/5: Patching constants.js (adapter type enum)..."
 
 if grep -q 'kilo_local' "$CONSTANTS_JS"; then
   info "  kilo_local already in enum, skipping"
@@ -225,7 +248,7 @@ fi
 # ===================================================================
 # IMPORTS: registry.js — add adapter-utils aliases
 # ===================================================================
-step "Step 2/4: Adding import aliases to registry.js..."
+step "Step 2/5: Adding import aliases to registry.js..."
 
 if grep -q "renderTemplate as _kRt" "$REGISTRY_JS"; then
   info "  Import aliases already present, skipping"
@@ -244,7 +267,7 @@ fi
 # ===================================================================
 # PATCHES #7, #10, #10b, env: registry.js — adapter code block
 # ===================================================================
-step "Step 3/4: Injecting adapter code into registry.js..."
+step "Step 3/5: Injecting adapter code into registry.js..."
 
 # Remove previous adapter block if --force
 if grep -q "=== KILO LOCAL ADAPTER ===" "$REGISTRY_JS"; then
@@ -437,7 +460,7 @@ fi
 # ===================================================================
 # MAP ENTRY: Add kiloLocalAdapter to adaptersByType
 # ===================================================================
-step "Step 4/4: Registering in adaptersByType map..."
+step "Step 4/5: Registering in adaptersByType map..."
 
 if grep -q "kiloLocalAdapter," "$REGISTRY_JS"; then
   info "  kiloLocalAdapter already in map, skipping"
@@ -449,6 +472,20 @@ else
     warn "  Could not find hermesLocalAdapter in map — manual insertion needed"
     warn "  Add 'kiloLocalAdapter,' to the adaptersByType Map array"
   fi
+fi
+
+# ===================================================================
+# PATCH #9: UI bundle — add kilo_local adapter support to dashboard
+# ===================================================================
+step "Step 5/5: Patching UI bundle for kilo_local support..."
+
+UI_BUNDLE=$(find "$PAPERCLIP_DIR/ui-dist/assets/" -name 'index-*.js' -exec grep -l 'claude_local' {} \; 2>/dev/null | head -1)
+
+if [[ -z "$UI_BUNDLE" ]]; then
+  warn "  UI bundle not found — skipping (dashboard will work, kilo_local just won't appear in UI)"
+else
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  node "$SCRIPT_DIR/patch-ui-bundle.cjs" "$UI_BUNDLE"
 fi
 
 # ===================================================================
@@ -491,6 +528,16 @@ if grep -q "kiloLocalAdapter," "$REGISTRY_JS"; then
 else
   error "✗ registry.js:  kiloLocalAdapter NOT in map"
   ((errors++)) || true
+fi
+
+# UI bundle
+if [[ -n "${UI_BUNDLE:-}" ]]; then
+  if node "$(dirname "$0")/patch-ui-bundle.cjs" --check "$UI_BUNDLE" > /dev/null 2>&1; then
+    info "✓ ui-dist:       kilo_local UI support"
+  else
+    error "✗ ui-dist:       kilo_local UI support missing"
+    ((errors++)) || true
+  fi
 fi
 
 echo ""
