@@ -276,6 +276,8 @@ if grep -q "=== KILO LOCAL ADAPTER ===" "$REGISTRY_JS"; then
     sed -i '/\/\/ === KILO LOCAL ADAPTER ===/,/\/\/ === END KILO ===/d' "$REGISTRY_JS"
     sed -i '/^const kiloLocalAdapter = /d' "$REGISTRY_JS"
     sed -i '/^    kiloLocalAdapter,$/d' "$REGISTRY_JS"
+    sed -i '/^async function _kiloListSkills/d' "$REGISTRY_JS"
+    sed -i '/^async function _kiloSyncSkills/d' "$REGISTRY_JS"
   fi
 fi
 
@@ -447,8 +449,10 @@ function _kiloListModels() {
   catch { return []; }
 }
 // === END KILO ===
+async function _kiloListSkills(ctx) { const s = await listOpenCodeSkills(ctx); s.warnings = ["Kilo uses the shared Claude skills home (~/.claude/skills)."]; return s; }
+async function _kiloSyncSkills(ctx, desiredSkills) { const s = await syncOpenCodeSkills(ctx, desiredSkills); s.warnings = ["Kilo uses the shared Claude skills home (~/.claude/skills)."]; return s; }
 
-const kiloLocalAdapter = { type: "kilo_local", execute: _kiloExecute, testEnvironment: _kiloTestEnv, sessionCodec: _kiloSCodec, models: [], listModels: _kiloListModels, supportsLocalAgentJwt: true, agentConfigurationDoc: "Kilo CLI adapter. Set model (provider/model) and cwd." };
+const kiloLocalAdapter = { type: "kilo_local", execute: _kiloExecute, testEnvironment: _kiloTestEnv, sessionCodec: _kiloSCodec, listSkills: _kiloListSkills, syncSkills: _kiloSyncSkills, models: [], listModels: _kiloListModels, supportsLocalAgentJwt: true, agentConfigurationDoc: "Kilo CLI adapter. Set model (provider/model) and cwd." };
 ADAPTER_EOF
 
   sed -i "$((INJECT_LINE - 1))r $ADAPTER_CODE" "$REGISTRY_JS"
@@ -527,6 +531,12 @@ if grep -q "kiloLocalAdapter," "$REGISTRY_JS"; then
   info "✓ registry.js:  kiloLocalAdapter in map"
 else
   error "✗ registry.js:  kiloLocalAdapter NOT in map"
+  ((errors++)) || true
+fi
+if grep -q "_kiloListSkills" "$REGISTRY_JS"; then
+  info "✓ registry.js:  kilo listSkills/syncSkills present"
+else
+  error "✗ registry.js:  kilo listSkills/syncSkills missing"
   ((errors++)) || true
 fi
 
