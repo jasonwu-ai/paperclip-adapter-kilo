@@ -1,0 +1,59 @@
+{
+  "name": "paperclip-adapter-kilo",
+  "version": "0.2.0",
+  "description": "Paperclip adapter for Kilo CLI (kilo_local) — local process adapter with multi-provider model support",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@paperclipai/adapter-utils": ">=0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "paperclip",
+    "adapter",
+    "kilo",
+    "kilocode",
+    "ai-agent"
+  ],
+  "license": "MIT",
+  "author": "Wu Consulting",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jasonwu-ai/paperclip-adapter-kilo"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}
