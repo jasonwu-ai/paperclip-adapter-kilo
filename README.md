@@ -30,7 +30,7 @@ cd paperclip-adapter-kilo
 sudo systemctl restart paperclip
 ```
 
-The install script auto-detects your Paperclip installation, backs up the target files, and patches in the adapter with fallback model support. Safe to run multiple times (idempotent).
+The install script auto-detects your Paperclip installation (walking the process tree to find the active npx cache), backs up the target files, patches in the adapter with fallback model support, and patches the UI bundle for full dashboard integration. Safe to run multiple times (idempotent).
 
 **After a Paperclip update** (patches get wiped):
 
@@ -38,10 +38,19 @@ The install script auto-detects your Paperclip installation, backs up the target
 ./install.sh          # re-applies everything
 ```
 
+**What it patches (5 steps):**
+
+1. `constants.js` — adds `kilo_local` to the adapter type enum
+2. `registry.js` — adds import aliases for adapter-utils
+3. `registry.js` — inlines the full adapter (execute, testEnv, sessionCodec, listModels, fallback)
+4. `registry.js` — registers `kiloLocalAdapter` in the adapter map
+5. `ui-dist/assets/index-*.js` — patches the dashboard UI for kilo_local support (dropdown, display names, thinking effort options). Handles bundle hash changes across Paperclip versions.
+
+
 **Other commands:**
 
 ```bash
-./install.sh --check      # verify install status
+./install.sh --check      # verify all 5 steps + UI bundle (6 checks)
 ./install.sh --force      # re-install over existing
 ./install.sh --uninstall  # restore from backup
 ```
