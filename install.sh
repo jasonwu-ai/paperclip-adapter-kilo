@@ -2,7 +2,7 @@
 # install-kilo-adapter.sh — Install kilo_local adapter into Paperclip
 #
 # Part of: https://github.com/jasonwu-ai/paperclip-adapter-kilo
-# Covers: Patches #7 (adapter), #8 (enum), #9 (UI bundle), #10 (fallback), #10b (auto-infer), env display
+# Covers: Patches #7 (adapter), #8 (enum), #9 (UI bundle), #10 (fallback), #10b (auto-infer), #11 (force-kill), env display
 #
 # Usage:
 #   ./install-kilo-adapter.sh              # Auto-detect Paperclip, install
@@ -301,7 +301,7 @@ else
 // === KILO LOCAL ADAPTER ===
 // Source: https://github.com/jasonwu-ai/paperclip-adapter-kilo
 // Installed by: install-kilo-adapter.sh
-// Patches: #7 (adapter), #10 (fallback), #10b (auto-infer), env display
+// Patches: #7 (adapter), #10 (fallback), #10b (auto-infer), #11 (force-kill), env display
 function _kParse(line) { try { return JSON.parse(line.trim()); } catch { return null; } }
 
 function _kiloInferFallback(m) {
@@ -407,7 +407,12 @@ async function _kiloExecute(ctx) {
   };
 
   const primaryTimeout = fallbackModel ? fallbackTimeoutSec : timeoutSec;
-  const proc = await _kRcp(runId, command, args, { cwd, env, stdin: prompt, timeoutSec: primaryTimeout, graceSec, onSpawn, onLog });
+  let _kiloChildPid = null;
+  const _kiloOnSpawnWrap = (...a) => { const info = a[0]; if (info && typeof info === "object" && info.pid) _kiloChildPid = info.pid; else if (typeof info === "number") _kiloChildPid = info; if (onSpawn) return onSpawn(...a); };
+  let _kiloForceKillTimer = null;
+  if (fallbackModel && primaryTimeout > 0) { _kiloForceKillTimer = setTimeout(() => { if (_kiloChildPid) { try { process.kill(_kiloChildPid, 0); process.kill(_kiloChildPid, "SIGKILL"); } catch(e) {} } }, (primaryTimeout + Math.max(1, graceSec) + 5) * 1000); }
+  const proc = await _kRcp(runId, command, args, { cwd, env, stdin: prompt, timeoutSec: primaryTimeout, graceSec, onSpawn: _kiloOnSpawnWrap, onLog });
+  if (_kiloForceKillTimer) clearTimeout(_kiloForceKillTimer);
 
   if (proc.timedOut && fallbackModel) {
     await onLog("stdout", "[paperclip] Primary model \"" + model + "\" timed out after " + primaryTimeout + "s. Falling back to \"" + fallbackModel + "\"\n");
