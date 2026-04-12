@@ -541,6 +541,11 @@ if [[ -n "${UI_BUNDLE:-}" ]]; then
 fi
 
 echo ""
+# Sync skills to ~/.kilocode/skills/ for kilo_local agents
+if [[ -x ~/sync-kilo-skills.sh ]]; then
+  ~/sync-kilo-skills.sh
+fi
+
 if [[ $errors -eq 0 ]]; then
   info "=== Installation complete ==="
   echo ""
