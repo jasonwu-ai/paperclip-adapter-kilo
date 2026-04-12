@@ -156,7 +156,7 @@ check_status() {
   local ui_bundle ui_ok=false
   ui_bundle=$(find "$PAPERCLIP_DIR/ui-dist/assets/" -name 'index-*.js' -exec grep -l 'claude_local' {} \; 2>/dev/null | head -1)
   if [[ -n "$ui_bundle" ]]; then
-    node "$(dirname "$0")/dist/scripts/patch-ui-bundle.js" --check "$ui_bundle" > /dev/null 2>&1 && ui_ok=true
+    npx tsc -p "$(dirname "$0")" 2>/dev/null; node "$(dirname "$0")/dist/scripts/patch-ui-bundle.js" --check "$ui_bundle" > /dev/null 2>&1 && ui_ok=true
     $ui_ok && info "✓ ui-dist:       kilo_local UI support" || warn "✗ ui-dist:       kilo_local UI support missing"
   else
     warn "✗ ui-dist:       bundle file not found"
@@ -485,7 +485,7 @@ if [[ -z "$UI_BUNDLE" ]]; then
   warn "  UI bundle not found — skipping (dashboard will work, kilo_local just won't appear in UI)"
 else
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  node "$SCRIPT_DIR/dist/scripts/patch-ui-bundle.js" "$UI_BUNDLE"
+  npx tsc -p "$SCRIPT_DIR" 2>/dev/null; node "$SCRIPT_DIR/dist/scripts/patch-ui-bundle.js" "$UI_BUNDLE"
 fi
 
 # ===================================================================
@@ -532,7 +532,7 @@ fi
 
 # UI bundle
 if [[ -n "${UI_BUNDLE:-}" ]]; then
-  if node "$(dirname "$0")/dist/scripts/patch-ui-bundle.js" --check "$UI_BUNDLE" > /dev/null 2>&1; then
+  if npx tsc -p "$(dirname "$0")" 2>/dev/null; node "$(dirname "$0")/dist/scripts/patch-ui-bundle.js" --check "$UI_BUNDLE" > /dev/null 2>&1; then
     info "✓ ui-dist:       kilo_local UI support"
   else
     error "✗ ui-dist:       kilo_local UI support missing"
