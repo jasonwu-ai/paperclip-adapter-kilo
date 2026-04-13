@@ -37,3 +37,8 @@ p("fhe array", 'fhe=[xZe,RZe,lXe,kXe,OXe,VXe,WZe,iet,dhe,xet]', 'fhe=[xZe,RZe,lX
 print(f"\n{count} patches applied.")
 with open(UI, "w") as f:
     f.write(c)
+
+# 7. "Coming soon" gate — without this, kilo_local shows greyed out
+p("coming soon gate",
+    'Lst=new Set(["claude_local","codex_local","gemini_local","opencode_local","pi_local","cursor","hermes_local"])',
+    'Lst=new Set(["claude_local","codex_local","gemini_local","opencode_local","pi_local","cursor","hermes_local","kilo_local"])')

@@ -16,7 +16,7 @@ Production-tested in multi-agent Paperclip deployments. Feature-complete with fu
 ## Prerequisites
 
 - Kilo CLI v7+: `npm install -g @kilocode/cli`
-- At least one auth provider configured: `kilo auth add`
+- At least one auth provider configured: `kilo auth login`
 - Paperclip server with `@paperclipai/adapter-utils`
 
 Until Paperclip ships an external adapter plugin surface, inline patching is required. Run `./install.sh` to install automatically.
@@ -44,7 +44,7 @@ The install script auto-detects your Paperclip installation (walking the process
 2. `registry.js` — adds import aliases for adapter-utils
 3. `registry.js` — inlines the full adapter (execute, testEnv, sessionCodec, listModels, fallback)
 4. `registry.js` — registers `kiloLocalAdapter` in the adapter map
-5. `ui-dist/assets/index-*.js` — patches the dashboard UI for kilo_local support (dropdown, display names, thinking effort options). Handles bundle hash changes across Paperclip versions.
+5. `ui-dist/assets/index-*.js` — patches the dashboard UI for kilo_local support (dropdown, display names, thinking effort options). Handles bundle hash changes across Paperclip versions. If step 5 fails (TypeScript compilation issues), run `python3 patch-ui.py` as a standalone alternative.
 6. `~/.kilocode/skills/` — syncs Paperclip skill symlinks so kilo agents load skills through Kilo's native skill directory.
 
 
@@ -120,7 +120,8 @@ This adapter uses `kilo_local` because the CLI binary is `kilo` (not `kilocode`)
 
 1. **System prompt overhead** — Kilo injects ~15K+ chars of its own system prompt on every run. Monitor context usage on smaller-context models.
 2. **Duplicate skill warnings** — If you also run `claude_local` or `opencode_local` agents, Kilo may scan their skill directories and log duplicate warnings. This is cosmetic and does not affect execution.
-3. **No external plugin surface yet** — Requires inline patches to register the adapter (run `./install.sh`). This will be resolved when Paperclip ships its plugin system ([#1973](https://github.com/paperclipai/paperclip/issues/1973)).
+3. **testEnvironment return format** — The adapter returns `{status, testedAt, checks}` to match the Paperclip UI renderer. If you see a black screen on "Test Environment", the return format may have reverted after a re-install.
+4. **No external plugin surface yet** — Requires inline patches to register the adapter (run `./install.sh`). This will be resolved when Paperclip ships its plugin system ([#1973](https://github.com/paperclipai/paperclip/issues/1973)).
 
 ## License
 
