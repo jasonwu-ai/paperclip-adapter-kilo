@@ -12,7 +12,7 @@ UI = base[0]
 with open(UI, "r") as f:
     c = f.read()
 
-if c.count("kilo_local") > 5:
+if c.count("kilo_local") > 30:
     print("Already patched (found kilo_local refs). Use clean bundle first."); sys.exit(0)
 
 with open(UI + ".bak.pre-kilo", "w") as f:

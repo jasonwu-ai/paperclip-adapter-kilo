@@ -156,8 +156,9 @@ check_status() {
   local ui_bundle ui_ok=false
   ui_bundle=$(find "$PAPERCLIP_DIR/ui-dist/assets/" -name 'index-*.js' -exec grep -l 'claude_local' {} \; 2>/dev/null | head -1)
   if [[ -n "$ui_bundle" ]]; then
-    npx tsc -p "$(dirname "$0")" 2>/dev/null; node "$(dirname "$0")/dist/scripts/patch-ui-bundle.js" --check "$ui_bundle" > /dev/null 2>&1 && ui_ok=true
-    $ui_ok && info "✓ ui-dist:       kilo_local UI support" || warn "✗ ui-dist:       kilo_local UI support missing"
+    kilo_refs=$(grep -o "kilo_local" "$ui_bundle" | wc -l 2>/dev/null || echo 0)
+    [[ "$kilo_refs" -gt 30 ]] && ui_ok=true
+    $ui_ok && info "✓ ui-dist:       kilo_local UI support ($kilo_refs references)" || warn "✗ ui-dist:       kilo_local UI support missing ($kilo_refs references)"
   else
     warn "✗ ui-dist:       bundle file not found"
   fi
@@ -497,7 +498,12 @@ if [[ -z "$UI_BUNDLE" ]]; then
   warn "  UI bundle not found — skipping (dashboard will work, kilo_local just won't appear in UI)"
 else
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  npx tsc -p "$SCRIPT_DIR" 2>/dev/null; node "$SCRIPT_DIR/dist/scripts/patch-ui-bundle.js" "$UI_BUNDLE"
+  # Restore clean bundle if partially patched
+  if [[ -f "${UI_BUNDLE}.bak.pre-kilo" ]] && grep -q "kilo_local" "$UI_BUNDLE"; then
+    cp "${UI_BUNDLE}.bak.pre-kilo" "$UI_BUNDLE"
+    info "  Restored clean bundle from backup before re-patching"
+  fi
+  python3 "$SCRIPT_DIR/patch-ui.py"
 fi
 
 # ===================================================================
@@ -550,10 +556,11 @@ fi
 
 # UI bundle
 if [[ -n "${UI_BUNDLE:-}" ]]; then
-  if npx tsc -p "$(dirname "$0")" 2>/dev/null; node "$(dirname "$0")/dist/scripts/patch-ui-bundle.js" --check "$UI_BUNDLE" > /dev/null 2>&1; then
-    info "✓ ui-dist:       kilo_local UI support"
+  kilo_refs=$(grep -o "kilo_local" "$UI_BUNDLE" | wc -l 2>/dev/null || echo 0)
+  if [[ "$kilo_refs" -gt 30 ]]; then
+    info "✓ ui-dist:       kilo_local UI support ($kilo_refs references)"
   else
-    error "✗ ui-dist:       kilo_local UI support missing"
+    error "✗ ui-dist:       kilo_local UI support missing ($kilo_refs references, need 30+)"
     ((errors++)) || true
   fi
 fi
