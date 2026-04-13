@@ -4,17 +4,28 @@
  * Validates that the Kilo CLI is installed, authenticated, has models,
  * and that the configured working directory is valid.
  */
-
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { asString } from "@paperclipai/adapter-utils/server-utils";
-import type { AdapterEnvironmentTestCheck } from "@paperclipai/adapter-utils";
+
+interface TestCheck {
+  code: string;
+  level: "info" | "warn" | "error";
+  ok: boolean;
+  message: string;
+}
+
+interface TestResult {
+  status: "pass" | "warn" | "fail";
+  testedAt: string;
+  checks: TestCheck[];
+}
 
 export function testEnvironment(
   config?: Record<string, unknown>,
-): AdapterEnvironmentTestCheck[] {
+): TestResult {
   const command = asString(config?.command, "kilo");
-  const results: AdapterEnvironmentTestCheck[] = [];
+  const checks: TestCheck[] = [];
 
   // Check 1: CLI installed
   try {
@@ -22,21 +33,21 @@ export function testEnvironment(
       encoding: "utf-8",
       timeout: 10_000,
     }).trim();
-    results.push({
-      id: "kilo_installed",
-      level: "error",
+    checks.push({
+      code: "kilo_installed",
+      level: "info",
       ok: true,
       message: `Kilo CLI ${version}`,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    results.push({
-      id: "kilo_installed",
+    checks.push({
+      code: "kilo_installed",
       level: "error",
       ok: false,
       message: `Kilo CLI not found: ${msg}`,
     });
-    return results; // Can't proceed without the CLI
+    return { status: "fail", testedAt: new Date().toISOString(), checks };
   }
 
   // Check 2: Auth providers
@@ -46,18 +57,21 @@ export function testEnvironment(
       timeout: 10_000,
     }).trim();
     const hasProviders =
-      authOutput.length > 0 && !authOutput.includes("No providers");
-    results.push({
-      id: "kilo_auth_configured",
-      level: "error",
+      authOutput.includes("Gateway") ||
+      authOutput.includes("oauth") ||
+      authOutput.includes("api-key") ||
+      (authOutput.length > 0 && !authOutput.includes("No providers"));
+    checks.push({
+      code: "kilo_auth_configured",
+      level: hasProviders ? "info" : "error",
       ok: hasProviders,
       message: hasProviders
-        ? "Auth providers configured"
-        : "No auth providers — run kilo auth add",
+        ? "Auth configured"
+        : "No auth providers — run kilo auth login",
     });
   } catch {
-    results.push({
-      id: "kilo_auth_configured",
+    checks.push({
+      code: "kilo_auth_configured",
       level: "warn",
       ok: false,
       message: "Could not check auth providers",
@@ -73,15 +87,15 @@ export function testEnvironment(
     const count = modelsOutput
       .split("\n")
       .filter((l) => l.includes("/")).length;
-    results.push({
-      id: "kilo_models_available",
-      level: "warn",
+    checks.push({
+      code: "kilo_models_available",
+      level: count > 0 ? "info" : "warn",
       ok: count > 0,
       message: `${count} models available`,
     });
   } catch {
-    results.push({
-      id: "kilo_models_available",
+    checks.push({
+      code: "kilo_models_available",
       level: "warn",
       ok: false,
       message: "Could not list models",
@@ -91,13 +105,19 @@ export function testEnvironment(
   // Check 4: CWD valid
   const cwd = asString(config?.cwd, "");
   if (cwd) {
-    results.push({
-      id: "kilo_cwd_valid",
-      level: "error",
-      ok: path.isAbsolute(cwd),
+    const valid = path.isAbsolute(cwd);
+    checks.push({
+      code: "kilo_cwd_valid",
+      level: valid ? "info" : "error",
+      ok: valid,
       message: `CWD: ${cwd}`,
     });
   }
 
-  return results;
+  const status = checks.some((c) => !c.ok && c.level === "error")
+    ? "fail"
+    : checks.some((c) => !c.ok)
+      ? "warn"
+      : "pass";
+  return { status, testedAt: new Date().toISOString(), checks };
 }

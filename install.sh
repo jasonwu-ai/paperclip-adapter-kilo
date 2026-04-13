@@ -313,7 +313,7 @@ function _kiloInferFallback(m) {
 async function _kiloExecute(ctx) {
   const { runId, agent, runtime, config: _cfg, context, onLog, onMeta, onSpawn, authToken } = ctx;
   const config = _cfg || {};
-  const command = config.command || "/home/paperclip/.npm-global/bin/kilo";
+  const command = config.command || "/usr/bin/kilo";
   const model = _kAs(config.model, "").trim();
   const variant = _kAs(config.variant, "").trim();
   const timeoutSec = config.timeoutSec || 0;
@@ -434,13 +434,16 @@ async function _kiloExecute(ctx) {
 }
 
 function _kiloTestEnv(config) {
-  const cmd = _kAs(config && config.command, "/home/paperclip/.npm-global/bin/kilo");
-  const results = [];
-  try { const v = _kExs(cmd + " --version", { encoding: "utf-8", timeout: 10000 }).trim(); results.push({ id: "kilo_installed", level: "error", ok: true, message: "Kilo CLI " + v }); }
-  catch(e) { results.push({ id: "kilo_installed", level: "error", ok: false, message: "Not found: " + e.message }); return results; }
+  const cmd = _kAs(config && config.command, "/usr/bin/kilo");
+  const checks = [];
+  try { const v = _kExs(cmd + " --version", { encoding: "utf-8", timeout: 10000 }).trim(); checks.push({ code: "kilo_installed", level: "info", ok: true, message: "Kilo CLI " + v }); }
+  catch(e) { checks.push({ code: "kilo_installed", level: "error", ok: false, message: "Not found: " + e.message }); return { status: "fail", testedAt: new Date().toISOString(), checks }; }
+  try { const a = _kExs(cmd + " auth list", { encoding: "utf-8", timeout: 10000 }).trim(); const has = a.includes("Gateway") || a.includes("oauth") || a.includes("api-key"); checks.push({ code: "kilo_auth", level: has ? "info" : "warn", ok: has, message: has ? "Auth configured" : "No providers authenticated" }); }
+  catch(e) { checks.push({ code: "kilo_auth", level: "warn", ok: false, message: "Auth check failed: " + e.message }); }
   const cwd = config && config.cwd;
-  if (cwd) results.push({ id: "kilo_cwd_valid", level: "error", ok: _kIa(cwd), message: "CWD: " + cwd });
-  return results;
+  if (cwd) checks.push({ code: "kilo_cwd_valid", level: _kIa(cwd) ? "info" : "error", ok: _kIa(cwd), message: "CWD: " + cwd });
+  const status = checks.some(c => !c.ok && c.level === "error") ? "fail" : checks.some(c => !c.ok) ? "warn" : "pass";
+  return { status, testedAt: new Date().toISOString(), checks };
 }
 
 const _kiloSCodec = {
@@ -450,7 +453,7 @@ const _kiloSCodec = {
 };
 
 function _kiloListModels() {
-  try { const r = _kExs("/home/paperclip/.npm-global/bin/kilo models", { encoding: "utf-8", timeout: 15000 }).trim(); return r.split("\n").filter(l => l.includes("/")).map(l => { const i = l.trim().indexOf("/"); return { id: l.trim(), label: l.trim().slice(i+1), group: l.trim().slice(0,i) }; }); }
+  try { const r = _kExs("/usr/bin/kilo models", { encoding: "utf-8", timeout: 15000 }).trim(); return r.split("\n").filter(l => l.includes("/")).map(l => { const i = l.trim().indexOf("/"); return { id: l.trim(), label: l.trim().slice(i+1), group: l.trim().slice(0,i) }; }); }
   catch { return []; }
 }
 // === END KILO ===
